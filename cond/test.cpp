@@ -5,7 +5,8 @@
 int g_bowl=0; // 0表示每面  1表示有面
 
 pthread_mutex_t g_tex;// 互斥锁
-pthread_cond_t cond; // 临界值
+pthread_cond_t cond; // 变量1--消费
+pthread_cond_t productor;// 变量2 --生产
 
 void* EatNoddle(void* arg)
 {
@@ -14,7 +15,7 @@ void* EatNoddle(void* arg)
     while(1)
     {
         pthread_mutex_lock(&g_tex);
-        if(g_bowl<=0)
+        while(g_bowl<=0)
         {
             //调用等待接口， 进入PCB等待队列
             pthread_cond_wait(&cond,&g_tex);
@@ -23,7 +24,7 @@ void* EatNoddle(void* arg)
         printf("Eat---g_bowl:%d\n",g_bowl);
         pthread_mutex_unlock(&g_tex);
         // 调用唤醒接口，唤醒PCB等待队列中的线程
-        pthread_cond_signal(&cond);
+        pthread_cond_signal(&productor);
     }
     return NULL;
 }
@@ -35,10 +36,10 @@ void* MakeNoddle(void* arg)
     while(1)
     {
         pthread_mutex_lock(&g_tex);
-        if(g_bowl>0)
+        while(g_bowl>0)
         {
             // 等待
-            pthread_cond_wait(&cond,&g_tex);
+            pthread_cond_wait(&productor,&g_tex);
         }
         
         g_bowl++;
@@ -56,17 +57,20 @@ int main()
     pthread_cond_init(&cond,NULL);
     
     pthread_t tid;
-    int ret=pthread_create(&tid,NULL,EatNoddle,NULL);
-    if(ret<0)
+    for(int i=0;i<2;i++)
     {
-        perror("pthread_create");
-        return -1;
-    }
-    ret = pthread_create(&tid,NULL,MakeNoddle,NULL);
-    if(ret<0)
-    {
-        perror("pthread_creat");
-        return -1;
+         int ret=pthread_create(&tid,NULL,EatNoddle,NULL);
+         if(ret<0)
+         {
+            perror("pthread_create");
+            return -1;
+         }
+         ret = pthread_create(&tid,NULL,MakeNoddle,NULL);
+         if(ret<0)
+         {
+             perror("pthread_creat");
+             return -1;
+         }
     }
     while(1)
     {
